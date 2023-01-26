@@ -58,10 +58,8 @@ public class BusKmCounter implements VehicleLeavesTrafficEventHandler, LinkLeave
     Double BUS_KMS_BRANDENBURG = 0.;
     Double BUS_KMS_BERLIN = 0.;
     private static final CoordinateTransformation transformation = TransformationFactory.getCoordinateTransformation("EPSG:31468", "EPSG:3857");
-    private static final Collection<SimpleFeature> features = ShapeFileReader.getAllFeatures("src/main/java/org/matsim/analysis/bezirksgrenzen.shp/bezirksgrenzen.shp");
+    private static final Collection<SimpleFeature> features = ShapeFileReader.getAllFeatures("src/main/java/org/matsim/analysis/busTravelDistances/berlinBezirke/bezirksgrenzen.shp");
     // you can see the CRS of your shapefile in the .prj file that should be in the root where your .shp file is stored
-
-    // one big geometry that contains all Berlin's districts
     private static Geometry berlinGeometry;
 
     public static void main( String[] args ) throws FactoryException, TransformException {
@@ -149,7 +147,7 @@ public class BusKmCounter implements VehicleLeavesTrafficEventHandler, LinkLeave
     }
 
     private static void CreateBerlinGeometry() throws FactoryException, TransformException {
-
+        // one big geometry that contains all Berlin's districts
         berlinGeometry = features.stream()
                 .filter(feature -> feature.getAttribute("Land_name").toString().equals("Berlin"))
                 .map(feature -> (Geometry) feature.getDefaultGeometry())
