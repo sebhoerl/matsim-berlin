@@ -1,7 +1,5 @@
 package org.matsim.analysis.busTravelDistances;
 
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryFactory;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.events.LinkLeaveEvent;
 import org.matsim.api.core.v01.events.VehicleLeavesTrafficEvent;
@@ -30,27 +28,21 @@ import java.nio.file.Path;
  * @author rgraebe
  */
 public class BusKmCounter implements VehicleLeavesTrafficEventHandler, LinkLeaveEventHandler {
-
-    static Scenario scenario;
-    String EVENTS_FILE_1pct = "https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v5.5-1pct/output-berlin-v5.5-1pct/berlin-v5.5.3-1pct.output_events.xml.gz";
-    static String CONFIG_FILE_1pct = "https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v5.5-1pct/output-berlin-v5.5-1pct/berlin-v5.5.3-1pct.output_config.xml";
-    static String VEHICLES_FILE_1pct = "https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v5.5-1pct/output-berlin-v5.5-1pct/berlin-v5.5.3-1pct.output_allVehicles.xml.gz";
-//    static String PLANS_FILE_1pct = "https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v5.5-1pct/output-berlin-v5.5-1pct/berlin-v5.5.3-1pct.output_plans.xml.gz";
-//    static String NETWORK_FILE = "https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v5.5-10pct/output-berlinv5.5/berlin-v5.5.3-10pct.output_network.xml.gz";
-
-    static String SCENARIO_PCT = "1pct";
-    Double BUS_KMS_BRANDENBURG = 0.;
-    Double BUS_KMS_BERLIN = 0.;
-    Double BUS_KMS_Total = 0.;
-	ShpOptions shpZones = new ShpOptions(Path.of("src/main/java/org/matsim/analysis/busTravelDistances/berlinBezirke/bezirksgrenzen.shp"), TransformationFactory.WGS84, StandardCharsets.UTF_8);
+    private static final String EVENTS_FILE_1pct = "https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v5.5-1pct/output-berlin-v5.5-1pct/berlin-v5.5.3-1pct.output_events.xml.gz";
+    private static final String CONFIG_FILE_1pct = "https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v5.5-1pct/output-berlin-v5.5-1pct/berlin-v5.5.3-1pct.output_config.xml";
+    private static final String VEHICLES_FILE_1pct = "https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v5.5-1pct/output-berlin-v5.5-1pct/berlin-v5.5.3-1pct.output_allVehicles.xml.gz";
+    private static final String SCENARIO_PCT = "1pct";
+    private Double busKmsBrandenburg = 0.;
+    private Double busKmsBerlin = 0.;
+    private Double busKmsTotal = 0.;
+	private static final ShpOptions shpZones = new ShpOptions(Path.of("src/main/java/org/matsim/analysis/busTravelDistances/berlinBezirke/bezirksgrenzen.shp"), TransformationFactory.WGS84, StandardCharsets.UTF_8);
     // you can see the CRS of your shapefile in the .prj file that should be in the root where your .shp file is stored
-    Index indexZones = shpZones.createIndex("EPSG:31468", "Gemeinde_n");
+    private static final Index indexZones = shpZones.createIndex("EPSG:31468", "Gemeinde_n");
+    private static final Config config = ConfigUtils.loadConfig( CONFIG_FILE_1pct );
+    private static final Scenario scenario = ScenarioUtils.loadScenario( config ) ;
+    private BusKmCounter() { config.vehicles().setVehiclesFile( VEHICLES_FILE_1pct ); }
 
     public static void main( String[] args ) throws FactoryException, TransformException {
-
-        Config config = ConfigUtils.loadConfig( CONFIG_FILE_1pct );
-        config.vehicles().setVehiclesFile( VEHICLES_FILE_1pct );
-        scenario = ScenarioUtils.loadScenario( config ) ;
 
         var handler = new BusKmCounter();
         var manager = EventsUtils.createEventsManager();
@@ -58,12 +50,12 @@ public class BusKmCounter implements VehicleLeavesTrafficEventHandler, LinkLeave
 
         manager.initProcessing();
         MatsimEventsReader reader = new MatsimEventsReader(manager);
-        reader.readFile( handler.EVENTS_FILE_1pct );
+        reader.readFile( EVENTS_FILE_1pct );
         manager.finishProcessing();
 
-        System.out.println("Bus kms Brandenburg (" + SCENARIO_PCT + "): " + handler.BUS_KMS_BRANDENBURG );
-        System.out.println("Bus kms Berlin (" + SCENARIO_PCT + "): " + handler.BUS_KMS_BERLIN );
-        System.out.println("Bus kms Total (" + SCENARIO_PCT + "): " + handler.BUS_KMS_Total );
+        System.out.println("Bus kms Brandenburg (" + SCENARIO_PCT + "): " + handler.busKmsBrandenburg );
+        System.out.println("Bus kms Berlin (" + SCENARIO_PCT + "): " + handler.busKmsBerlin );
+        System.out.println("Bus kms Total (" + SCENARIO_PCT + "): " + handler.busKmsTotal );
     }
 
     @Override
@@ -73,11 +65,11 @@ public class BusKmCounter implements VehicleLeavesTrafficEventHandler, LinkLeave
 		Link link = scenario.getNetwork().getLinks().get(linkLeaveEvent.getLinkId());
 		if (vehicle.getType().getId().toString().equals("Bus_veh_type")) {
 //                System.out.println("found a bus");
-			BUS_KMS_Total = BUS_KMS_Total + link.getLength() / 1000.;
+			busKmsTotal = busKmsTotal + link.getLength() / 1000.;
 			if (indexZones.contains(link.getCoord())) {
-				BUS_KMS_BERLIN = BUS_KMS_BERLIN + link.getLength() / 1000.;
+				busKmsBerlin = busKmsBerlin + link.getLength() / 1000.;
 			} else
-				BUS_KMS_BRANDENBURG = BUS_KMS_BRANDENBURG + link.getLength() / 1000.;
+				busKmsBrandenburg = busKmsBrandenburg + link.getLength() / 1000.;
 		}
 	}
 
@@ -88,11 +80,11 @@ public class BusKmCounter implements VehicleLeavesTrafficEventHandler, LinkLeave
         Link link = scenario.getNetwork().getLinks().get( vehicleLeavesTrafficEvent.getLinkId() );
         if ( vehicle.getType().getId().toString().equals( "Bus_veh_type" ) ){
 //                System.out.println("found a bus leaving traffic");
-			BUS_KMS_Total = BUS_KMS_Total + link.getLength() / 1000.;
+			busKmsTotal = busKmsTotal + link.getLength() / 1000.;
 			if (indexZones.contains(link.getCoord())) {
-				BUS_KMS_BERLIN = BUS_KMS_BERLIN + link.getLength() / 1000.;
+				busKmsBerlin = busKmsBerlin + link.getLength() / 1000.;
 			} else
-				BUS_KMS_BRANDENBURG = BUS_KMS_BRANDENBURG + link.getLength() / 1000.;
+				busKmsBrandenburg = busKmsBrandenburg + link.getLength() / 1000.;
             }
 //        } catch ( Exception ignored ) {
 //             not a transit vehicle OR vehicle = null :(
