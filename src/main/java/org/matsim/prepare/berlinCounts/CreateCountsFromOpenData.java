@@ -40,6 +40,9 @@ public class CreateCountsFromOpenData implements MATSimAppCommand {
 	@CommandLine.Option(names = "--road-type", description = "road type patterns to filter the network")
 	List<String> roadTypes = List.of("motorway", "trunk", "primary");
 
+	@CommandLine.Option(names = "--search-range", description = "output folder", defaultValue = "50")
+	double searchRange;
+
 	@CommandLine.Option(names = "--output", description = "output folder", required = true)
 	String output;
 
@@ -83,14 +86,13 @@ public class CreateCountsFromOpenData implements MATSimAppCommand {
 		}
 
 		logger.info("Build Index.");
-		NetworkIndex index = new NetworkIndex(filteredNetwork, 10);
+		NetworkIndex index = new NetworkIndex(filteredNetwork, searchRange);
 		MathTransform transformation = getCoordinateTransformation(crs);
 
 		logger.info("Processing simple features.");
 		int counter = 0;
 		for(SimpleFeature feature: features){
 
-			counter++;
 			String id = (String) feature.getAttribute("link_id");
 			if(countsOption.getIgnored().contains(id))
 				continue;
@@ -104,6 +106,7 @@ public class CreateCountsFromOpenData implements MATSimAppCommand {
 			Link matched = index.query(transformed);
 			if(matched == null) {
 				logger.warn("Could not match feature {}. Maybe try with a bigger search range?", id);
+				counter++;
 			} else {
 				index.remove(matched);
 
@@ -115,6 +118,8 @@ public class CreateCountsFromOpenData implements MATSimAppCommand {
 				freight.createAndAddCount(matched.getId(), name).createVolume(1, freightDTV);
 			}
 		}
+
+		logger.info("Features without a match: {}", counter);
 
 		logger.info("Write results to {}", output);
 		new CountsWriter(car).write(output + "car-counts.xml.gz");
